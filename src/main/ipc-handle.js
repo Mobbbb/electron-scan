@@ -1,6 +1,5 @@
 const { ipcMain, screen, app, globalShortcut } = require('electron')
 const nodemailer = require('nodemailer')
-const createRemindWindow = require('./remind-handle')
 const fs = require('fs')
 
 const robotjs = require('@jitsi/robotjs')
@@ -11,14 +10,6 @@ let worker = null
 const toolBarHeight = 32
 const accuracy = 0.5
 const border = 1
-
-let auth = ''
-try {
-	const data = fs.readFileSync('./temp/config.json')
-	auth = JSON.parse(data)
-} catch (e) {
-	console.log(e)
-}
 
 const getWorker = async () => {
 	let worker = await createWorker(['eng', 'chi_sim'], 1, {
@@ -41,8 +32,7 @@ const swapRedAndBlueChannel = bmp => {
     }
 }
 
-module.exports = (mainWindow) => {
-	const remindWindow = createRemindWindow()
+module.exports = (mainWindow, remindWindow, tray) => {
 	mainWindow.on('move', () => {
 		const { x, y } = mainWindow.getBounds()
 		remindWindow.webContents.send('mousemove', {

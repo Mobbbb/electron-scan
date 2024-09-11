@@ -3,11 +3,7 @@
 <head>
 	<meta charset="UTF-8" />
 	<title>控制面板</title>
-	<meta
-		http-equiv="Content-Security-Policy"
-		content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:"
-	/>
-
+	<script src="./mock/index.js"></script>
 	<style>
 		html {
 			height: 100%;
@@ -44,6 +40,10 @@
 			width: 44px;
     		font-size: 12px;
 		}
+		.future-input {
+			width: 60px;
+    		font-size: 12px;
+		}
 		#start {
 			background-color: white;
 		}
@@ -56,9 +56,9 @@
     		height: 100px;
 			outline: none;
 		}
-		.rule-text {
+		.rule-text, .gap-rule-text {
 			width: 180px;
-    		height: 70px;
+    		height: 65px;
 			outline: none;
 			font-size: 12px;
 		}
@@ -80,11 +80,18 @@
 			box-sizing: border-box;
 		}
 		.left {
-			width: 190px;
+			width: 230px;
 			flex-shrink: 0;
 		}
 		.left > div {
 			margin-bottom: 4px;
+		}
+		.iframe {
+			height: 55px;
+			position: absolute;
+			top: -12px;
+			left: 138px;
+			visibility: hidden;
 		}
 	</style>
 </head>
@@ -100,11 +107,27 @@
 				1. 点击 <input type="text" value="0" class="mouseX1"> , <input type="text" value="0" class="mouseY1"> <button id="copyBtn1">固定</button>
 			</div> -->
 			<div>
-				1. 报警规则
-				<textarea class="rule-text" spellcheck="false" placeholder="示例：
-1、{x} > 500 || {x} < 200
-2、{x} !== 200
-3、{x} > 200 && {x} < 500
+				<label><input name="type" type="radio" value="0" class="type-radio" />规则报警 </label>
+				<label><input name="type" type="radio" value="1" class="type-radio" />变化报警 </label>
+				<label><input name="type" type="radio" value="2" class="type-radio" />价差报警 </label>
+			</div>
+			<div class="future-price-area">
+				0. <button id="readBtn">读取</button>合约 <input type="text" value="" class="future-input"> 价格
+				<iframe src="" frameborder="0" width="90px" class="iframe"></iframe>
+			</div>
+			<div class="rule-area">
+1. 报警规则
+<textarea class="rule-text" spellcheck="false" placeholder="示例：
+1、{扫描} > 500
+2、{扫描} !== 200
+3、{扫描} > 200
+"></textarea>
+			</div>
+			<div class="future-area">
+1. 报警规则
+<textarea class="gap-rule-text" style="height: 50px" spellcheck="false" placeholder="示例：
+1、{扫描} - {读取} > 500
+2、{扫描} - {读取} < 200
 "></textarea>
 			</div>
 			<div>
@@ -133,20 +156,6 @@
 </body>
 
 <script>
-	document.addEventListener('keydown', function(event) {
-		if (event.key === 'F12') {
-			window.call.openRemindDevTools()
-		}
-	})
-
-	let loopStatus = false
-	let scaleFactor = 1
-	let count = 0
-	let mouseInfo = {
-		x: 0,
-		y: 0,
-	}
-	
 	const mouseXY = document.querySelector('.mouseXY') || {}
 	const mouseY1 = document.querySelector('.mouseY1') || {}
 	const mouseX1 = document.querySelector('.mouseX1') || {}
@@ -156,10 +165,10 @@
 	const mouseX2 = document.querySelector('.mouseX2') || {}
 	const copyBtn2 = document.querySelector('#copyBtn2') || {}
 	const actionBtn = document.querySelector('#start') || {}
+	const readBtn = document.querySelector('#readBtn') || {}
 	const closeBtn = document.querySelector('#close') || {}
 	const loopTime = document.querySelector('.loopTime') || {}
 	const textarea = document.querySelector('.textarea') || {}
-	const ruleText = document.querySelector('.rule-text') || {}
 	const recognizeTime = document.querySelector('.recognizeTime') || {}
 	const isText = document.querySelector('.isText') || {}
 	const notText = document.querySelector('.notText') || {}
@@ -169,6 +178,66 @@
 	const countText = document.querySelector('.countText') || {}
 	const errorTips = document.querySelector('.errorTips') || {}
 	const errorTimes = document.querySelector('.errorTimes') || {}
+	const typeRadio = document.querySelectorAll('.type-radio') || []
+	const ruleText = document.querySelector('.rule-text') || {}
+	const gapRuleText = document.querySelector('.gap-rule-text') || {}
+	const ruleArea = document.querySelector('.rule-area') || {}
+	const futureArea = document.querySelector('.future-area') || {}
+	const futurePriceArea = document.querySelector('.future-price-area') || {}
+	const futureInput = document.querySelector('.future-input') || {}
+	let iframe = document.querySelector('.iframe') || {}
+	let warnType = localStorage.getItem('warnType') || '0'
+	futureInput.value = localStorage.getItem('future-input-value') || 'EB0'
+	
+	document.addEventListener('keydown', function(event) {
+		if (event.key === 'F12') {
+			window.call.openRemindDevTools()
+		}
+	})
+	typeRadio.forEach(item => {
+		if (item.value === warnType) { // 初始化
+			item.checked = 'checked'
+		}
+		if (warnType !== '0') {
+			ruleArea.style.display = 'none'
+		}
+		if (warnType !== '2') {
+			futureArea.style.display = 'none'
+			futurePriceArea.style.display = 'none'
+		}
+		item.addEventListener('click', (e) => {
+			const checkedRadio = document.querySelector('.type-radio:checked')
+			warnType = checkedRadio.value
+			if (checkedRadio.value === '1') { // 变化报警
+				ruleArea.style.display = 'none'
+				futureArea.style.display = 'none'
+				futurePriceArea.style.display = 'none'
+			} else if (checkedRadio.value === '0') { // 规则报警
+				ruleArea.style.display = 'block'
+				futureArea.style.display = 'none'
+				futurePriceArea.style.display = 'none'
+			} else if (checkedRadio.value === '2') { // 规则报警
+				futureArea.style.display = 'block'
+				futurePriceArea.style.display = 'block'
+				ruleArea.style.display = 'none'
+			}
+			localStorage.setItem('warnType', warnType)
+			errorText.value = ''
+			stop()
+		})
+	})
+
+	let loopStatus = false
+	let scaleFactor = 1
+	let count = 0
+	let mouseInfo = {
+		x: 0,
+		y: 0,
+	}
+	let timeoutCount = 0
+	let timeoutMap = {}
+	let prevRecognizeInfo = ''
+	let iframeDom = null
 
 	// if (localStorage.getItem('mouseX1')) {
 	// 	mouseX1.value = localStorage.getItem('mouseX1')
@@ -191,6 +260,15 @@
 	if (localStorage.getItem('ruleText')) {
 		ruleText.value = localStorage.getItem('ruleText')
 	}
+	if (localStorage.getItem('gapRuleText')) {
+		gapRuleText.value = localStorage.getItem('gapRuleText')
+	}
+	if (localStorage.getItem('loopTime')) {
+		loopTime.value = localStorage.getItem('loopTime')
+	}
+	if (localStorage.getItem('errorTimes')) {
+		errorTimes.value = localStorage.getItem('errorTimes')
+	}
 
 	// window.listen.mousemove(async ({ x, y }) => {
 	// 	mouseXY.innerHTML = `(${x}, ${y})`
@@ -201,22 +279,120 @@
 	// 	openMailBtn.checked = !openMailBtn.checked
 	// })
 
+	readBtn.onclick = () => {
+		iframe.style.visibility = 'hidden'
+		iframe.src = `${prevLink}${futureInput.value}.shtml`
+		localStorage.setItem('future-input-value', futureInput.value)
+	}
+
+	const getCurrentPrice = () => {
+		return parseFloat(iframeDom.getElementsByClassName('real-price')[0]?.innerHTML)
+	}
+
+	const setDomStyle = (dom, key, value) => {
+		if (dom) {
+			dom.style[key] = value
+		}
+	}
+	iframe.src = `${prevLink}${futureInput.value}.shtml`
+	iframe.onload = async () => {
+		var dom = iframe.contentDocument || iframe.contentWindow.document
+		iframeDom = dom
+		dom.getElementById('SFA_NV_POP')?.remove()
+		dom.getElementById('header')?.remove()
+		dom.getElementById('left')?.remove()
+		dom.getElementById('financeApp_pics')?.remove()
+		dom.getElementById('ny-link-r0')?.remove()
+		dom.getElementById('barrageSent')?.remove()
+		dom.getElementById('box-calc-area')?.remove()
+		dom.getElementsByClassName('side-btns-answer2022')[0]?.remove()
+		dom.getElementsByClassName('qrcode-blk-right')[0]?.remove()
+		dom.getElementsByClassName('footer')[0]?.remove()
+		dom.getElementsByClassName('j-popWrap')[0]?.remove()
+		dom.getElementsByClassName('tip-delay')[0]?.remove()
+		dom.getElementById('box-month-contract-list-wrap')?.parentNode?.remove()
+		dom.getElementById('box-interaction-wrap')?.remove()
+		dom.getElementsByClassName('code')[0]?.remove()
+		dom.getElementsByClassName('futures-title')[0]?.remove()
+
+		dom.getElementsByTagName('html')[0].style.height = '100%'
+		dom.getElementsByTagName('html')[0].style.overflow = 'hidden'
+		setDomStyle(dom.getElementsByClassName('arrow')[0], 'background', 'none')
+		setDomStyle(dom.getElementsByClassName('trade-time')[0], 'paddingTop', '6px')
+		setDomStyle(dom.getElementsByClassName('trade-time')[0], 'borderTop', 'none')
+		setDomStyle(dom.getElementsByClassName('title')[0], 'background', 'none')
+		setDomStyle(dom.getElementsByClassName('title')[0], 'color', '#303133')
+		setDomStyle(dom.getElementsByClassName('title')[0], 'width', '210px')
+		setDomStyle(dom.getElementsByClassName('title')[0], 'text-align', 'center')
+		setDomStyle(dom.getElementsByClassName('title')[0], 'padding', '0')
+		setDomStyle(dom.getElementsByClassName('real-price')[0], 'font-size', '12px')
+		setDomStyle(dom.getElementById('container'), 'width', '100%')
+		setDomStyle(dom.getElementById('middle'), 'width', '100%')
+		setDomStyle(dom.getElementById('right'), 'margin', '0 auto')
+		setDomStyle(dom.getElementById('right'), 'float', 'unset')
+		setDomStyle(dom.getElementById('right'), 'border-left', 'none')
+		setDomStyle(dom.getElementById('table-box-futures-flash'), 'border', 'none')
+		setDomStyle(dom.getElementById('box-flash-wrap'), 'margin', '0 auto')
+		setDomStyle(dom.getElementById('table-box-futures-flash'), 'display', 'none')
+
+		const style = document.createElement('style')
+		style.append(`
+		::-webkit-scrollbar
+			{
+				width: 0;
+				height: 0;
+				background-color: white;
+			}
+		`)
+		dom.getElementsByTagName('body')[0].append(style)
+		
+		const segment = dom.getElementsByClassName('segment')
+		segment[0]?.remove()
+		segment[0]?.remove()
+		segment[0]?.remove()
+		const section = dom.getElementsByClassName('section')
+		section[0]?.remove()
+		section[0]?.remove()
+		section[0]?.remove()
+		iframe.style.visibility = 'visible'
+	}
+
 	window.call.getScaleFactor().then(scale => {
 		if (scale) scaleFactor = scale
 	})
 
+	let speakArr = []
 	const speak = (text, config = {}) => {
-		let msg = new SpeechSynthesisUtterance(text)
-		const {
-			volume = 1,
-			rate = 1.5,
-			pitch = 0.5,
-		} = config
-		msg.volume = volume
-		msg.rate = rate
-		msg.pitch = pitch
-		msg.voice = speechSynthesis.getVoices()[2]
-		speechSynthesis.speak(msg)
+		if (!speakArr.length) {
+			speakArr.push(text)
+			speakHandle(config, text)
+		} else {
+			speakArr.push(text)
+		}
+	}
+
+	const speakHandle = (config, text) => {
+		if (text) {
+			let msg = new SpeechSynthesisUtterance(text)
+			const {
+				volume = 1,
+				rate = 1.5,
+				pitch = 0.5,
+			} = config
+			msg.volume = volume
+			msg.rate = rate
+			msg.pitch = pitch
+			msg.voice = speechSynthesis.getVoices()[2]
+			msg.onend = function() {
+				speechSynthesis.cancel()
+				let nextText = speakArr.pop()
+				if (speakArr.length) {
+					speakArr = []
+					speakHandle(config, nextText)
+				}
+			}
+			speechSynthesis.speak(msg)
+		}
 	}
 
 	copyBtn1.onclick = () => {
@@ -248,6 +424,15 @@
 			if (ruleText.value) {
 				localStorage.setItem('ruleText', ruleText.value)
 			}
+			if (gapRuleText.value) {
+				localStorage.setItem('gapRuleText', gapRuleText.value)
+			}
+			if (loopTime.value) {
+				localStorage.setItem('loopTime', loopTime.value)
+			}
+			if (errorTimes.value) {
+				localStorage.setItem('errorTimes', errorTimes.value)
+			}
 			actionBtn.innerHTML = '⏸停止'
 			actionBtn.style.background = 'red'
 			// imageDom.src = recognizeInfo.image
@@ -258,6 +443,7 @@
 	}
 
 	function stop() {
+		clearAllTimeout()
 		loopStatus = false
 		textarea.value= ''
 		errorText.value= ''
@@ -265,6 +451,7 @@
 		actionBtn.style.background = 'white'
 		setCount(0)
 		logText('00:00:00')
+		speechSynthesis.cancel()
 	}
 
 	async function loop() {
@@ -292,18 +479,8 @@
 	}
 
 	async function actionHandle() {
+		errorTips.innerHTML = ''
 		if (!loopStatus) return
-		// open
-		// if (mouseX1.value >= 0 && mouseY1.value >= 0) {
-		// 	await window.call.mouseTo([mouseX1.value * scaleFactor, mouseY1.value * scaleFactor])
-		// 	if (!loopStatus) return
-		// 	await sleep(1000, '1.0、等待执行鼠标点击...')
-		// 	if (!loopStatus) return
-		// 	await window.call.mouseClick()
-		// 	if (!loopStatus) return
-		// 	await sleep(5000, '1.5、等待执行图片截取...')
-		// 	if (!loopStatus) return
-		// }
 
 		// capture
 		await window.call.desktopCapturer()
@@ -316,21 +493,11 @@
 			textarea.value = recognizeInfo.text
 			const formatText = recognizeInfo.text.replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, '').toLowerCase()
 
-			// if (openMailBtn.checked) {
-				errorTips.innerHTML = ''
-				await sleep(1000, '等待执行报警监测...')
-				// send mail
-				let rule = ruleText.value.replace(/{x}/g, 'formatText')
-				// if (notText.value && isText.value) {
-				// 	rule = formatText.indexOf(notText.value) === -1 || formatText.indexOf(isText.value) > -1
-				// } else if (notText.value && !isText.value) {
-				// 	rule = formatText.indexOf(notText.value) === -1
-				// } else if (!notText.value && isText.value) {
-				// 	rule = formatText.indexOf(isText.value) > -1
-				// }
+			if (warnType === '0') { // 规则报警
+				let rule = ruleText.value.replace(/{扫描}/g, 'formatText')
 				if (!rule) {
 					setCount(0)
-					errorTips.innerHTML = '未设置报警规则!'
+					setErrorTips('未设置报警规则!')
 					stop()
 					return
 				}
@@ -338,9 +505,11 @@
 				let ruleRes = false
 				try {
 					ruleRes = eval(rule)
-				} catch(e) {}
+				} catch(e) {
+					setErrorTips('规则格式错误： ' + e)
+					stop()
+				}
 				if (ruleRes) {
-					errorTips.innerHTML = ''
 					const tempCount = count + 1
 					setCount(tempCount)
 					if (count >= Number(errorTimes.value)) {
@@ -348,53 +517,83 @@
 						errorText.value = '触发警告！内容为：\n' + formatText + '\n'
 							+ new Date(+new Date() + 28800000).toISOString().replace('T', ' ').split('.')[0]
 						setCount(0)
-						// const res = await window.call.sendMail({
-						// 	content: `
-						// 		<div style="text-align: center;">
-						// 			您的监测内容发生变动<br>
-						// 			监测规则为——不包含"${notText.value}" 或者 包含"${isText.value}"<br>
-						// 			当前图像的识别文字为 "${textarea.value}"<br>
-						// 			当前图像处理后的文字为 "${formatText}"<br>
-						// 			快照如下: <br>
-						// 			<img src="${recognizeInfo.image}" />
-						// 		</div>
-						// 	`,
-						// })
-						// if (res.success) {
-						// 	stop()
-						// 	textarea.value = '已发送报警，程序终止！'
-						// } else {
-						// 	errorText.value = '邮件系统错误！ \n' + res.msg
-						// }
 					}
 				}
-			// } else {
-			// 	errorTips.innerHTML = '当前未开启邮箱报警!'
-			// }
+			} else if (warnType === '1') { // 变化报警
+				if (!prevRecognizeInfo) { // 初始值
+					prevRecognizeInfo = formatText
+				}
+				if (prevRecognizeInfo !== formatText) {
+					speak('触发警告！当前内容为：' + formatText)
+						errorText.value = '触发警告！当前内容为：' + formatText + '。之前内容为：' + prevRecognizeInfo + '\n'
+							+ new Date(+new Date() + 28800000).toISOString().replace('T', ' ').split('.')[0]
+				}
+				prevRecognizeInfo = formatText
+			} else if (warnType === '2') { // 价差报警
+				let readPrice = getCurrentPrice()
+				let rule = gapRuleText.value.replace(/{扫描}/g, 'formatText').replace(/{读取}/g, 'readPrice')
+				let gapNum = 0
+				if (gapRuleText.value.indexOf('扫描') < gapRuleText.value.indexOf('读取')) {
+					gapNum = formatText - readPrice
+				}
+				if (!rule) {
+					setCount(0)
+					setErrorTips('未设置报警规则!')
+					stop()
+					return
+				}
+
+				let ruleRes = false
+				try {
+					ruleRes = eval(rule)
+				} catch(e) {
+					setErrorTips('规则格式错误： ' + e)
+					stop()
+				}
+				if (!isNaN(gapNum)) {
+					if (ruleRes) {
+						const tempCount = count + 1
+						setCount(tempCount)
+						if (count >= Number(errorTimes.value)) {
+							speak('触发警告！价差为：' + gapNum)
+							errorText.value = '触发警告！价差为：\n ' + gapNum + '\n'
+								+ new Date(+new Date() + 28800000).toISOString().replace('T', ' ').split('.')[0]
+							setCount(0)
+						}
+					} else {
+						errorText.value = '价差： ' + gapNum
+					}
+				} else {
+					errorText.value = '扫描内容为非数字！'
+				}
+			}
 		} else {
 			logText('识别模块准备中...')
-		}
-		// close
-		if (mouseX2.value >= 0 && mouseY2.value >= 0) {
-			if (!loopStatus) return
-			await sleep(1000, '3.5、等待执行鼠标移出...')
-			if (!loopStatus) return
-			await window.call.mouseTo([mouseX2.value * scaleFactor, mouseY2.value * scaleFactor])
-			if (!loopStatus) return
-			await sleep(1000, '4.0、等待执行鼠标点击...')
-			if (!loopStatus) return
-			await window.call.mouseClick()
 		}
 	}
 
 	function sleep(t = 0, log) {
-		// logText(log + '<br>' + new Date(+new Date() + 28800000).toISOString().replace('T', ' ').split('.')[0])
 		logText(log)
-		return new Promise(r => setTimeout(() => r(), t))
+		return new Promise(r => {
+			timeoutMap[timeoutCount] = setTimeout(() => r(), t)
+			timeoutCount++
+		})
 	}
 
-	function logText(text) {
+	function clearAllTimeout() {
+		Object.keys(timeoutMap).map(key => {
+			clearTimeout(timeoutMap[key])
+		})
+		timeoutMap = {}
+		timeoutCount = 0
+	}
+
+	function logText(text) { // 当前执行的步骤
 		recognizeTime.innerHTML = text
+	}
+
+	function setErrorTips(text) { // 代码报错
+		errorTips.innerHTML = text
 	}
 
 	function setCount(value) {

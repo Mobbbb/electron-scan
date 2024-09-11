@@ -1,9 +1,11 @@
 const { FusesPlugin } = require('@electron-forge/plugin-fuses');
 const { FuseV1Options, FuseVersion } = require('@electron/fuses');
+const path = require('path')
 
 module.exports = {
   packagerConfig: {
     asar: true,
+    icon: path.join(__dirname, 'public', 'icon') // 不需要文件扩展名
   },
   rebuildConfig: {},
   electronBuilderConfig: {
@@ -11,6 +13,10 @@ module.exports = {
       {
         from: './temp',
         to: './temp'
+      },
+      {
+        from: './public',
+        to: './public'
       }
     ],
   },

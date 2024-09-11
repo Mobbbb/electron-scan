@@ -1,13 +1,14 @@
-const { BrowserWindow, screen, ipcMain } = require('electron')
+const { BrowserWindow, screen, ipcMain, app } = require('electron')
 const { join } = require('path')
 
-let remindWindowMap = {}
-let windowId = 0
+let remindWindow = null
 
-function createRemindWindow() {
-	remindWindowMap[windowId] = new BrowserWindow({
-		height: 250,
-		width: 360,
+app.commandLine.appendSwitch('disable-site-isolation-trials') // 禁用同源策略
+
+function createRemindWindow(closeHandle) {
+	remindWindow = new BrowserWindow({
+		height: 290,
+		width: 400,
 		show: false,
 		resizable: true,
 		frame: true,
@@ -15,35 +16,37 @@ function createRemindWindow() {
 		transparent: false, // 窗口透明
 		webPreferences: {
 			preload: join(__dirname, '../preload/index.js'),
-			nodeIntegration: true,
-			contextIsolation: false, // 关闭上下文隔离
+			sandbox: false,
+			webSecurity: false, // 禁用同源策略
 		},
 	})
-	remindWindowMap[windowId].removeMenu()
+	remindWindow.removeMenu()
+
+	remindWindow.on('close', closeHandle)
 
 	// 右下角弹出
 	const { size, scaleFactor } = screen.getPrimaryDisplay()
-	const { height, width } = remindWindowMap[windowId].getBounds()
+	const { height, width } = remindWindow.getBounds()
 
-	remindWindowMap[windowId].setBounds({
+	remindWindow.setBounds({
 		x: size.width - width + 7,
 		y: size.height - height - 33,
 		height,
 		width,
 	})
-	remindWindowMap[windowId].setAlwaysOnTop(true)
-	remindWindowMap[windowId].loadFile(join(__dirname, '../renderer/remind.html'))
-	remindWindowMap[windowId].show()
+	remindWindow.setAlwaysOnTop(true)
+	remindWindow.loadFile(join(__dirname, '../renderer/remind.html'))
+	remindWindow.show()
 
 	ipcMain.handle('openRemindDevTools', async (event) => {
-		remindWindowMap[windowId].webContents.openDevTools()
+		remindWindow.webContents.openDevTools()
 	})
 
 	ipcMain.handle('getScaleFactor', async (event) => {
 		return scaleFactor
 	})
 
-	return remindWindowMap[windowId]
+	return remindWindow
 }
 
 module.exports = createRemindWindow

@@ -137,7 +137,7 @@
 				4. 点击 <input type="text" value="0" class="mouseX2"> , <input type="text" value="0" class="mouseY2"> <button id="copyBtn2">固定</button>
 			</div> -->
 			<div>
-				3. 等待时间 <input type="text" value="2000" class="loopTime">
+				3. 等待时间 <input type="text" value="" class="loopTime">
 			</div>
 			<button id="start">▶️启动</button> <button id="test">识别测试</button>
 			<div>
@@ -263,12 +263,10 @@
 	if (localStorage.getItem('gapRuleText')) {
 		gapRuleText.value = localStorage.getItem('gapRuleText')
 	}
-	if (localStorage.getItem('loopTime')) {
-		loopTime.value = localStorage.getItem('loopTime')
-	}
 	if (localStorage.getItem('errorTimes')) {
 		errorTimes.value = localStorage.getItem('errorTimes')
 	}
+	loopTime.value = localStorage.getItem('loopTime') || '4000'
 
 	// window.listen.mousemove(async ({ x, y }) => {
 	// 	mouseXY.innerHTML = `(${x}, ${y})`

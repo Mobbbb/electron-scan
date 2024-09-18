@@ -12,8 +12,8 @@ function createRemindWindow(closeHandle) {
 		show: false,
 		resizable: true,
 		frame: true,
-		skipTaskbar: false, // 窗口是否不显示在任务栏上面
-		transparent: false, // 窗口透明
+		skipTaskbar: true, // 窗口是否不显示在任务栏上面
+		transparent: true, // 窗口透明
 		webPreferences: {
 			preload: join(__dirname, '../preload/index.js'),
 			sandbox: false,
